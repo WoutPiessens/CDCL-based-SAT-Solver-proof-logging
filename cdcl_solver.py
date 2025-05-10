@@ -8,6 +8,7 @@ from lazy_clause import Lazy_Clause
 from cnf import CNF_Formula
 from implication_graph import Implication_Graph
 
+# test
 class CDCL_Solver: 
     def __init__(self, input_cnf_file, verbose):
         self.assert_mode = False
