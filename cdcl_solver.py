@@ -8,12 +8,65 @@ from lazy_clause import Lazy_Clause
 from cnf import CNF_Formula
 from implication_graph import Implication_Graph
 
-# test
+def write_clause_to_pbp(clause):
+    clause_string = "rup "
+    for n in clause:
+        if n > 0:
+            clause_string += f'+1 x{n} '
+        else:
+            clause_string += f'+1 ~x{-n} '
+    clause_string += '>= 1\n'
+
+    with open("proof_log.pbp", "a") as f:
+        f.write(clause_string)
+
+def write_clauses_to_opb(list_clause, nvars):
+    nconstraints = len([c for c in list_clause if len(c) > 0])
+    clause_str = f'* #variable= {nvars} #constraint= {nconstraints}\n'
+    for clause in list_clause:
+        if len(clause) > 0:
+            for n in clause:
+                if n > 0:
+                    clause_str += f'1 x{n} '
+                else:
+                    clause_str += f'1 ~x{-n} '
+            clause_str += '>= 1;\n'
+    with open("proof_log.opb", "a") as f:
+        f.write(clause_str)
+
+    with open("proof_log.pbp", "a") as f:
+        f.write(f'pseudo-Boolean proof version 2.0\nf {nconstraints}\n')
+
+
+def write_unsat_to_pbp():
+    clause_str = 'rup >= 1\noutput NONE\nconclusion NONE\nend pseudo-Boolean proof\n'
+    with open("proof_log.pbp", "a") as f:
+        f.write(clause_str)
+    
+
+def extend_clauses_with_pure_literals(temp_clauses, nvars):
+    clauses_list = [c for c in temp_clauses if len(c) > 0]
+    flattened_clause = {elem for clause in temp_clauses for elem in clause}
+    for i in range(1,nvars+1):
+        if i in flattened_clause and -i not in flattened_clause:
+            clauses_list.append([i])
+            print("Added: ", i)
+        if -i in flattened_clause and i not in flattened_clause:
+            clauses_list.append([-i])
+    return clauses_list
+
+
 class CDCL_Solver: 
     def __init__(self, input_cnf_file, verbose):
         self.assert_mode = False
         self.verbose = verbose
-        self.list_clause, self.nvars = parse(input_cnf_file, self.verbose)
+        temp_clauses, self.nvars = parse(input_cnf_file, self.verbose)
+        self.list_clause = extend_clauses_with_pure_literals(temp_clauses, self.nvars)
+        with open('proof_log.opb', 'w') as file:
+            pass
+        with open('proof_log.pbp', 'w') as file:
+            pass
+        write_clauses_to_opb(self.list_clause, self.nvars)
         self.formula = CNF_Formula(self.list_clause)
         self.graph = Implication_Graph()
         self.decision_level = 0
@@ -49,6 +102,7 @@ class CDCL_Solver:
         assert len(pool_literal) > 0
         if len(pool_literal) == 1:
             self.analysis_count = 0
+            write_clause_to_pbp(w.clause)
             return w, w.get_backtrack_level()
         else: 
             i = 0
@@ -160,10 +214,12 @@ class CDCL_Solver:
         
         if stop: 
             assert self.is_sat == -1
+            write_unsat_to_pbp()
             print('UNSAT')
         elif not stop and self.is_sat == 1:
             print('SAT')
         elif not stop and self.is_sat == -1:
+            write_unsat_to_pbp()
             print('UNSAT')
         else: #But practically, this should not happen !
             print('UNRESOLVED !')
